@@ -1,46 +1,35 @@
-#!/bin/bash
-
-local_modified=0
+#!/usr/bin/env bash
 
 sync-git()
 {
 # go to git root folder
-cd "$1"
-# need push ?
-local_modified=0
+cd "$1" || { echo "failed to enter folder: $1!!!" >&2; exit 1;  }
 
-if [ -n "`git ls-files -m`" ]
-then
-    local_modified=1
-fi
+[[ ! -d ./.git ]] && { echo "NOT a git repo!!" >&2; cd - > /dev/null; exit 1; }
+# need push ?
+declare -i local_modified=0
+[[ -n "`git ls-files -m`" ]] && local_modified=1
 
 # need pull ?
-git fetch origin
+git fetch -q origin  || { echo "$1: fetch failed!!!" >&2; cd - > /dev/null; exit 1; }
 # See if there are any incoming changes
-if [ -n "`git log HEAD..origin/master --oneline`" ]
+if [[ -n "`git log HEAD..origin/master --oneline`" ]]
 then
-    if [ $local_modified -eq 0 ]
+    if (( local_modified == 0 ))
     then
 	echo "$1: pulling..." && git pull && echo "pull done!"
     else
 	echo "$1: both modified!!!"
     fi
 else
-    if [ $local_modified -eq 1 ]
-    then
-	echo "$1: local dirty! Please commit & push"
-    fi
+    (( local_modified == 1 )) && echo "$1: local dirty! Please commit & push"
 fi
-cd - >> /dev/null
+cd - > /dev/null
 }
 
 cd ../
 
 for gitdir in config/*
 do
-    if [ -d "$gitdir" ]
-    then
-	# sync for this git repo
-	sync-git $gitdir
-    fi
+    [[ -d "$gitdir" ]] && sync-git $gitdir 	# sync for this git repo
 done
